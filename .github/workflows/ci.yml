@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - main        # main já tem o build-release cobrindo
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build-check:
+    name: Verificar build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar ps2exe
+        shell: pwsh
+        run: Install-Module -Name ps2exe -Scope CurrentUser -Force
+
+      - name: Gerar bundle e compilar
+        shell: pwsh
+        run: |
+          $rootPath   = $env:GITHUB_WORKSPACE
+          $bundlePath = "$env:TEMP\TibiaManager-bundle.ps1"
+
+          $modules = @(
+            "src\config.ps1",
+            "src\update.ps1",
+            "src\minimap.ps1",
+            "src\screenshots.ps1",
+            "src\testserver.ps1"
+          )
+
+          $bundle  = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`n"
+          $bundle += "`$script:Versao = `"ci-check`"`n`n"
+
+          foreach ($module in $modules) {
+            $content = Get-Content (Join-Path $rootPath $module) -Raw -Encoding UTF8
+            $content = $content -replace '\[Console\]::OutputEncoding.*\n', ''
+            $bundle += "# --- $module ---`n" + $content.Trim() + "`n`n"
+          }
+
+          $entryPoint = Get-Content (Join-Path $rootPath "script.ps1") -Raw -Encoding UTF8
+          $entryPoint = $entryPoint -replace '\[Console\]::OutputEncoding.*\n', ''
+          $entryPoint = $entryPoint -replace '\$script:Versao\s*=\s*"dev"\n', ''
+          $entryPoint = $entryPoint -replace '(?s)# Carrega módulos.*?}\n', ''
+          $bundle += "# --- entry point ---`n" + $entryPoint.Trim() + "`n"
+
+          Set-Content -Path $bundlePath -Value $bundle -Encoding UTF8
+
+          Invoke-ps2exe `
+            -inputFile   $bundlePath `
+            -outputFile  "TibiaManager.exe" `
+            -title       "Tibia Manager" `
+            -description "CI build check" `
+            -version     "0.0.0" `
+            -noConsole:$false `
+            -requireAdmin:$false
+
+      - name: Verificar se o executável foi gerado
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "TibiaManager.exe")) {
+            Write-Host "❌ TibiaManager.exe não foi gerado." -ForegroundColor Red
+            exit 1
+          }
+          $size = (Get-Item "TibiaManager.exe").Length
+          Write-Host "✅ Build OK — TibiaManager.exe gerado ($size bytes)" -ForegroundColor Green
