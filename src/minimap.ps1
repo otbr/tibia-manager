@@ -11,7 +11,7 @@ function Atualizar-Minimap {
     $destinationFolder = Join-Path $baseFolder "minimap"
     $tempExtractFolder = "$env:TEMP\minimap-temp"
     $zipPath           = "$env:TEMP\minimap.zip"
-    $currentMinimapMakerPath = "$tempExtractFolder\orig_minimapmarkers.bin"
+    $marcadoresAtualPath = "$tempExtractFolder\minimapmarkers-atual.bin"
 
     # Pasta de backup centralizada no AppData
     $pastaBackup = Join-Path $script:Config.PastaBackup "minimap"
@@ -46,8 +46,8 @@ function Atualizar-Minimap {
     }
 
     Write-Host "`nDeseja combinar os marcadores atuais com os do mapa novo?"
-    Write-Host "1 - Sim, combinar marcadores"
-    Write-Host "2 - Não, manter arquivo minimapmarkers.bin atual"
+    Write-Host "1 - Sim, combinar marcadores (mantém os seus e adiciona os novos)"
+    Write-Host "2 - Não, sobrescrever com os marcadores do mapa baixado"
     $combinar = Read-Host "Digite a opção"
 
     Write-Host "`nBaixando minimap de: $url"
@@ -72,8 +72,8 @@ function Atualizar-Minimap {
 
     if (Test-Path $destinationFolder) {
         $minimapMarkerOriginal = Join-Path $destinationFolder "minimapmarkers.bin"
-        Write-Host "Copiando marcadores atuais para temp..."
-        Copy-Item -Path $minimapMarkerOriginal -Destination $currentMinimapMakerPath -Force
+        Write-Host "Copiando marcadores em uso para temp..."
+        Copy-Item -Path $minimapMarkerOriginal -Destination $marcadoresAtualPath -Force
         Write-Host "Criando backup em: $backupZip"
         Compress-Archive -Path "$destinationFolder\*" -DestinationPath $backupZip -Force
         Write-Host "✅ Backup criado." -ForegroundColor Green
@@ -92,20 +92,20 @@ function Atualizar-Minimap {
 
         if ($combinar -eq "1") {
             Write-Host "Combinando arquivos minimapmarkers.bin..."
-            $arquivoNovo = Join-Path $extractedMinimap "minimapmarkers.bin"
+            $marcadoresBaixadoPath = Join-Path $extractedMinimap "minimapmarkers.bin"
 
-            if ((Test-Path $currentMinimapMakerPath) -and (Test-Path $arquivoNovo)) {
-                $arquivoCombinado = Join-Path $tempExtractFolder "minimapmarkers.bin"
-                Combinar-Marcadores -originalPath $currentMinimapMakerPath -novoPath $arquivoNovo -destinoPath $arquivoCombinado
+            if ((Test-Path $marcadoresAtualPath) -and (Test-Path $marcadoresBaixadoPath)) {
+                $arquivoCombinado = Join-Path $tempExtractFolder "minimapmarkers-combinado.bin"
+                Combinar-Marcadores -atualPath $marcadoresAtualPath -baixadoPath $marcadoresBaixadoPath -destinoPath $arquivoCombinado
                 Copy-Item -Path $arquivoCombinado -Destination $extractedMinimap -Force
-            } elseif (Test-Path $currentMinimapMakerPath) {
-                Copy-Item -Path $currentMinimapMakerPath -Destination $extractedMinimap -Force
+            } elseif (Test-Path $marcadoresAtualPath) {
+                Copy-Item -Path $marcadoresAtualPath -Destination $extractedMinimap -Force
                 Write-Host "minimapmarkers.bin não encontrado no mapa baixado, mantendo o atual." -ForegroundColor Yellow
             } else {
                 Write-Host "minimapmarkers.bin não encontrado para combinação." -ForegroundColor Yellow
             }
         } else {
-            Write-Host "Mantendo arquivo minimapmarkers.bin atual."
+            Write-Host "Usando marcadores do mapa baixado."
         }
 
         if (Test-Path $destinationFolder) {
@@ -127,43 +127,41 @@ function Atualizar-Minimap {
 
 function Combinar-Marcadores {
     param (
-        [string]$originalPath,
-        [string]$novoPath,
+        [string]$atualPath,
+        [string]$baixadoPath,
         [string]$destinoPath
     )
 
-    $backupPath = Join-Path (Split-Path $originalPath) "minimapmarkers-backup.bin"
-    Copy-Item -Path $originalPath -Destination $backupPath -Force
+    $backupPath = Join-Path (Split-Path $atualPath) "minimapmarkers-atual-backup.bin"
+    Copy-Item -Path $atualPath -Destination $backupPath -Force
 
-    $origBytes = Read-BinaryFile -path $originalPath
-    $novoBytes = Read-BinaryFile -path $novoPath
+    $bytesAtual   = Read-BinaryFile -path $atualPath
+    $bytesBaixado = Read-BinaryFile -path $baixadoPath
 
-    Write-Host "Extraindo marcadores atuais..."
-    $marcadoresOrig = Extrair-Marcadores -dados $origBytes
-    Write-Host "Extraindo marcadores baixados..."
-    $marcadoresNovo = Extrair-Marcadores -dados $novoBytes
+    Write-Host "Extraindo marcadores em uso..."
+    $marcadoresAtual   = Extrair-Marcadores -dados $bytesAtual
+    Write-Host "Extraindo marcadores do mapa baixado..."
+    $marcadoresBaixado = Extrair-Marcadores -dados $bytesBaixado
 
     $todos = @{}
 
+    # Marcadores em uso têm prioridade: entram primeiro e não são sobrescritos
     Write-Host "Mesclando marcadores..."
-    foreach ($m in $marcadoresOrig) {
+    foreach ($m in $marcadoresAtual) {
         $todos[$m.Chave] = $m.Dados
     }
-    foreach ($m in $marcadoresNovo) {
+    foreach ($m in $marcadoresBaixado) {
         if (-not $todos.ContainsKey($m.Chave)) {
             $todos[$m.Chave] = $m.Dados
         }
     }
 
-    # TODO (ponto 1): $finalBytes += dentro de loop cria um novo array a cada iteração (O(n²)).
-    # Substituir por [System.Collections.Generic.List[byte]] e AddRange(), ou usar:
-    #   [byte[]]($todos.Values | ForEach-Object { $_ })
-    # para montar o array de uma vez só, antes de chamar Write-BinaryFile.
-    $finalBytes = @()
+    $listaBytes = [System.Collections.Generic.List[byte]]::new()
     Write-Host "Gerando arquivo final do minimapmarkers.bin..."
     foreach ($dado in $todos.Values) {
-        $finalBytes += $dado
+        $listaBytes.AddRange([byte[]]$dado)
     }
+    $finalBytes = $listaBytes.ToArray()
 
     Write-BinaryFile -path $destinoPath -content $finalBytes
     Write-Host "✅ Arquivo minimapmarkers.bin combinado com sucesso." -ForegroundColor Green

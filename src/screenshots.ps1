@@ -5,10 +5,6 @@
 function Organizar-Screenshots {
     Write-Host "`n=== Organização de Screenshots ===`n"
 
-    # TODO (ponto 3): $origem está hardcoded para Tibia Principal.
-    # Adicionar menu de seleção (Principal / Test Server) igual ao de Atualizar-Minimap,
-    # e também permitir escolher $destino (ex: OneDrive vs pasta local).
-
     $timestamp   = Get-Date -Format "yyyyMMdd-HHmmss"
     $origem      = Join-Path $env:LOCALAPPDATA "Tibia\packages\Tibia\screenshots"
     $destino     = $script:Config.DestinoScreenshots
