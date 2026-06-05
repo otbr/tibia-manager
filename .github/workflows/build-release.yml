@@ -96,14 +96,14 @@ jobs:
 
           foreach ($module in $modules) {
             $content = Get-Content (Join-Path $rootPath $module) -Raw -Encoding UTF8
-            $content = $content -replace '\[Console\]::OutputEncoding.*\n', ''
+            $content = $content -replace '\[Console\]::OutputEncoding.*\r?\n', ''
             $bundle += "# --- $module ---`n" + $content.Trim() + "`n`n"
           }
 
           $entryPoint = Get-Content (Join-Path $rootPath "script.ps1") -Raw -Encoding UTF8
-          $entryPoint = $entryPoint -replace '\[Console\]::OutputEncoding.*\n', ''
-          $entryPoint = $entryPoint -replace '\$script:Versao\s*=\s*"dev"\n', ''
-          $entryPoint = $entryPoint -replace '(?s)# Carrega módulos.*?}\n', ''
+          $entryPoint = $entryPoint -replace '\[Console\]::OutputEncoding.*\r?\n', ''
+          $entryPoint = $entryPoint -replace '\$script:Versao\s*=\s*"dev"\r?\n', ''
+          $entryPoint = $entryPoint -replace '(?s)# Carrega módulos.*?\}\r?\n', ''
           $bundle += "# --- entry point ---`n" + $entryPoint.Trim() + "`n"
 
           Set-Content -Path $bundlePath -Value $bundle -Encoding UTF8
