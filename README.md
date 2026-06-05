@@ -8,7 +8,9 @@ Utilitário para automatizar tarefas repetitivas do Tibia no Windows: atualizaç
 
 ### 🗺️ Atualizar Minimap
 - Download do minimap completo via [tibiamaps.io](https://tibiamaps.io)
-- Opção de combinar seus marcadores atuais com os do mapa novo
+- Duas opções ao atualizar os marcadores:
+  - **Combinar** — mantém seus marcadores em uso e adiciona os que vieram no mapa novo
+  - **Sobrescrever** — usa somente os marcadores do mapa baixado
 - Backup automático criado antes de qualquer substituição
 
 ### 📸 Organizar Screenshots
@@ -51,12 +53,12 @@ Na primeira execução o Tibia Manager verifica a instalação do Tibia e solici
 
 | Campo | Padrão |
 |---|---|
-| Pasta de destino das screenshots | `%USERPROFILE%\OneDrive\Pictures\Tibia Screenshots` |
-| Pasta de backups | `%APPDATA%\TibiaManager\backups` |
+| Pasta de destino das screenshots | `%USERPROFILE%\Pictures\Tibia Screenshots` |
+| Pasta de backups | `%LOCALAPPDATA%\TibiaManager\backups` |
 
 As configurações são salvas em:
 ```
-%APPDATA%\TibiaManager\config.json
+%LOCALAPPDATA%\TibiaManager\config.json
 ```
 
 Para alterar a qualquer momento, escolha a opção **9 - Reconfigurar** no menu principal.
@@ -64,7 +66,7 @@ Para alterar a qualquer momento, escolha a opção **9 - Reconfigurar** no menu 
 ### Estrutura de backups
 
 ```
-%APPDATA%\TibiaManager\
+%LOCALAPPDATA%\TibiaManager\
 ├── config.json
 └── backups\
     ├── minimap\
